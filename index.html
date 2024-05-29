@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVE Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        .pagination {
+            margin-top: 10px;
+        }
+        .cursor-pointer {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>CVE Viewer</h1>
+    <div id="results">
+        <div>Total Records: <span id="totalRecords">0</span></div>
+        <table id="resultsTable">
+            <thead>
+                <tr>
+                    <th>CVE ID</th>
+                    <th>Published Date <span id="dateSort" class="cursor-pointer">&#x25B2;</span></th>
+                    <th>CVSS Score</th>
+                    <th>Last Modified Date <span id="modSort" class="cursor-pointer">&#x25B2;</span></th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+        </table>
+        <div class="pagination">
+            Results Per Page:
+            <select id="resultsPerPage">
+                <option value="10" selected>10</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <button id="prevPage" disabled>&lt; Prev</button>
+            <button id="nextPage" disabled>Next &gt;</button>
+        </div>
+    </div>
+    <script>
+        let currentPage = 1;
+        let resultsPerPage = 10; // Default results per page
+        let dateSortAsc = true;
+        let modSortAsc = true;
+
+        function fetchCVEs() {
+            const start = (currentPage - 1) * resultsPerPage;
+            const sortBy = dateSortAsc ? 'published_date' : '-published_date';
+            const sortByMod = modSortAsc ? 'last_modified_date' : '-last_modified_date';
+            const apiUrl = `/cves/list?start=${start}&limit=${resultsPerPage}&sort=${sortBy},${sortByMod}`;
+            console.log('Fetching data from:', apiUrl);
+            fetch(apiUrl)
+            .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Data received:', data);
+             {
+                    const resultsBody = document.getElementById('resultsBody');
+                    resultsBody.innerHTML = ''; // Clear previous results
+
+                    if (data.cves.length === 0) {
+                        resultsBody.innerHTML = '<tr><td colspan="4">No CVEs found.</td></tr>';
+                    } else {
+                        data.cves.forEach(cve => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="cursor-pointer" data-cve-id="${cve.cve_id}">${cve.cve_id}</td>
+                                <td>${cve.published_date}</td>
+                                <td>${cve.cvss_score}</td>
+                                <td>${cve.last_modified_date}</td>
+                            `;
+                            resultsBody.appendChild(row);
+                        });
+                    }
+
+                    const totalRecordsSpan = document.getElementById('totalRecords');
+                    totalRecordsSpan.textContent = data.totalRecords || 0;
+
+                    const prevPageBtn = document.getElementById('prevPage');
+                    const nextPageBtn = document.getElementById('nextPage');
+
+                    prevPageBtn.disabled = currentPage === 1;
+                    nextPageBtn.disabled = currentPage * resultsPerPage >= data.totalRecords;
+                })
+                .catch(error => console.error('Error fetching CVEs:', error));
+        }
+
+        function navigateToDetails(cveId) {
+            window.location.href = `/cves/cve-${cveId}`;
+        }
+
+        document.getElementById('resultsBody').addEventListener('click', function(event) {
+            const target = event.target;
+            if (target.classList.contains('cursor-pointer') && target.dataset.cveId) {
+                navigateToDetails(target.dataset.cveId);
+            }
+        });
+
+        document.getElementById('dateSort').addEventListener('click', function() {
+            dateSortAsc = !dateSortAsc;
+            fetchCVEs();
+            this.innerHTML = dateSortAsc ? '&#x25B2;' : '&#x25BC;';
+        });
+
+        document.getElementById('modSort').addEventListener('click', function() {
+            modSortAsc = !modSortAsc;
+            fetchCVEs();
+            this.innerHTML = modSortAsc ? '&#x25B2;' : '&#x25BC;';
+        });
+
+        document.getElementById('resultsPerPage').addEventListener('change', function() {
+            resultsPerPage = parseInt(this.value, 10);
+            currentPage = 1; // Reset current page when results per page is changed
+            fetchCVEs();
+        });
+
+        document.getElementById('prevPage').addEventListener('click', function() {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchCVEs();
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', function() {
+            currentPage++;
+            fetchCVEs();
+        });
+         
+        fetchCVEs(); // Fetch initial data
+        .catch(error => console.error('Error fetching CVEs:', error));
+}</script>
+</body>
+</html>
